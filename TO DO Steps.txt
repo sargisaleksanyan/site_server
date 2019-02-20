@@ -1,0 +1,35 @@
+
+
+
+Alter Db.sql
+
+
+npm install express-session
+
+
+App.js:
+app.use(session({ 
+	secret: "Shh, its a super-secret-key!",
+	resave: true, 
+	saveUninitialized: true
+})); // session secret
+
+
+
+DBConnectionService.js:
+var con = mysql.createConnection({
+	
+	host: "localhost",
+	user: "",
+	password: "",
+	//port: 3306,
+	//multipleStatements: true,
+	database: "sites_visit"
+});
+
+
+
+
+
+
+

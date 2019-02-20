@@ -1,0 +1,928 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<title>Sites Editor</title>
+
+	<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/redmond/jquery-ui.css">
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+	<link rel="stylesheet" href="https://netdna.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+	<link rel="stylesheet" href="https://rawgit.com/free-jqgrid/jqGrid/master/css/ui.jqgrid.css">
+
+<style>
+
+	.ui-datepicker { 
+		font-size: 90%; 
+	}
+	
+	.ui-datepicker select.ui-datepicker-year,
+	.ui-datepicker select.ui-datepicker-month {	
+		font-size: 75%;
+		color: black;
+	}
+
+	.image-center {	
+		display: block;
+		margin-left: auto;
+		margin-right: auto;
+	}
+
+	/* Table cell textarea overflow */
+	.ui-jqgrid tr.jqgrow td {
+		white-space: nowrap !important;
+	}
+
+</style>
+	
+</head>
+
+<body style="background-color: #1A2955;"> 
+
+	<div class="container">
+	
+		<a href="auth/signout" class="btn btn-sm btn-primary" style="float: right;">
+			<span class="glyphicon glyphicon-log-out"></span> 
+			Log out
+		</a>	
+	
+		<img src="/images/Horizontal_Plain_OL_White_LOGO.png" height="56" class="image-center" > 
+	</div>
+	
+	<div style="margin-left: 6px; margin-bottom: 6px;">
+		<table id="domainsGrid"></table>
+		<div id="domainsPager"></div>	
+	</div>
+	
+	<div style="margin-left: 6px;">
+		<table id="pagesPostsGrid"></table>
+		<div id="pagesPostsPager"></div>		
+	</div>
+	
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+	<script src="https://rawgit.com/free-jqgrid/jqGrid/master/js/jquery.jqgrid.src.js"></script>
+<script>
+//<![CDATA[
+
+$(function () {
+	"use strict";		
+		
+	var domainsGrid = $("#domainsGrid");
+	let domainId;
+	let domainType;
+	
+
+	domainsGrid.jqGrid({
+	
+		url: "/api/domains",
+		datatype: "json",//jsonstring		
+		loadonce: true,	
+		//navOptions: { reloadGridOptions: { fromServer: true } },
+		//reloadGridOptions: { fromServer: true },
+		onSelectRow: reload,
+		//sortname: "last_visited",
+		//sortorder: "desc",				
+		width: 1025,
+		height: 220,
+		//autoResizing: { compact: false },
+		viewrecords: true,
+		rowList: [5, 10, 20, 50, 100, "1000000:All"],
+		rowNum: 10,
+		//inlineEditing: { keys: true },
+		pager: '#domainsPager',
+		cmTemplate: { editable: true, autoResizable: true },
+		iconSet: "fontAwesome",
+		//postData: { keyword: function () { return $("#myForm").serialize(); } },
+		caption: "Domains Editor",		
+		colNames: [ /*"",*/ "ID", "URL", "", "Category", "Type", "Last Visited", "Notes" ],
+		colModel: [
+			//{ name: "act", template: "actions" },
+			{ name: "id", hidden: true },
+			{ 
+				name: "url", 
+				width: 450,
+				sortable: true//,
+				//formatter: 'link'//,  //'showlink'
+				//formatter: function (cellvalue, options, rowObject) {
+                //    return "<a href='" + cellvalue + "' target='_blank' class='anchor usergroup_name link'>" + cellvalue + "</a>";
+                //}				
+			},			
+			{ 
+				name: "open", 
+				editable: false, 
+				search: false,
+				width: 40,
+				formatter: function (cellvalue, options, rowObject) {
+				
+					return `<button onclick="(() => {
+						
+						window.open('${rowObject.url}', '_blank');
+						
+						fetch('/api/domains/lastvisited', { 
+							method: 'PUT',
+							headers: { 'Content-Type': 'application/x-www-form-urlencoded' },							
+							body: 'id=${rowObject.id}' 
+						})
+						.then((response) => {
+							return response.json()
+						})
+						.then((responseJson) => {							
+							$('#domainsGrid').jqGrid('setCell', ${options.rowId}, 'last_visited', responseJson.time);
+						})    
+						.catch((error) => {
+							alert(error);
+						});
+						
+					})();" class="btn btn-default btn-xs">Visit</button>`;
+				}
+			},
+			{ name: "category", width: 120, sortable: true },
+			{ name: "type", width: 120, sortable: true },			
+			{ 
+				name: "last_visited", 
+				width: 145,
+				editable: false,
+				//sortable: true,	
+				//stype: 'text',
+				sorttype: 'date',
+				formatter: 'date',
+				//datefmt: 'M/d/Y, g:i A',
+				formatoptions: //http://php.net/manual/ru/function.date.php
+				{ 
+					//reformatAfterEdit: true,
+					//userLocalDate : true,					
+					//userLocalDate : false,					
+					srcformat: "ISO8601Long",
+					//srcformat: "Y-m-d H:i:s",
+					//newformat: "n/j/Y g:i:s A"
+					newformat: "M/d/Y, g:i A"
+					//newformat: "M/d/Y, H:i"
+				},				
+				searchoptions: {
+					//sopt: ["eq", "ne", "lt", "le", "gt", "ge"], //"==", "!=", "<", "<=", ">", ">="
+					sopt: ["deq", "dne", "dlt",  "dge"], //"==", "!=", "<", ">="					
+					dataInit: function (elem, options) {
+						var self = this;
+						$(elem).datepicker({
+							//dateFormat: 'M/d/Y, g:i A',
+							//showOn: 'focus',
+							autoSize: true,
+							changeYear: true,
+							changeMonth: true,
+							showButtonPanel: true,
+							showWeek: true,
+							onSelect: function () {
+								if (options.mode === "filter") {
+									setTimeout(function () {
+										self.triggerToolbar();
+									}, 0);
+								} else {
+									// to refresh the filter
+									$(elem).trigger("change");
+								}
+							}/**/
+						});
+					} 
+				} 
+			},				
+			{ name: "notes", edittype: 'textarea', width: 150, sortable: true }			
+		],		
+		customSortOperations: {
+			deq: {
+				operand: "==",
+				text: "Equal (Date only)",
+				filter: function (options) {
+				
+					var p = this.p, 
+					iCol = p.iColByName[options.cmName], 
+					cm = p.colModel[iCol],
+					
+					newformat = cm.formatoptions != null && cm.formatoptions.newformat ?
+								cm.formatoptions.newformat :
+								$(this).jqGrid("getGridRes", "formatter.date.newformat"),
+								
+					srcformat = cm.formatoptions != null && cm.formatoptions.srcformat ?
+								cm.formatoptions.srcformat :
+								$(this).jqGrid("getGridRes", "formatter.date.srcformat"),
+								
+					searchValue = $.jgrid.parseDate.call(this, newformat, options.searchValue),					
+					fieldData = new Date($.jgrid.parseDate.call(this, srcformat, options.item[options.cmName]));
+						
+					//let fd = fieldData;
+					let fd = new Date(fieldData.valueOf() - fieldData.getTimezoneOffset() * 60000);					
+					return fd.getFullYear() === searchValue.getFullYear() &&
+							fd.getMonth() === searchValue.getMonth() &&
+							fd.getDate() === searchValue.getDate();
+				}
+			},
+			dne: {
+				operand: "!=",
+				text: "Not equal (Date only)",
+				filter: function (options) {
+				
+					var p = this.p, 
+					iCol = p.iColByName[options.cmName], 
+					cm = p.colModel[iCol],
+					
+					newformat = cm.formatoptions != null && cm.formatoptions.newformat ?
+							cm.formatoptions.newformat :
+							$(this).jqGrid("getGridRes", "formatter.date.newformat"),
+							
+					srcformat = cm.formatoptions != null && cm.formatoptions.srcformat ?
+							cm.formatoptions.srcformat :
+							$(this).jqGrid("getGridRes", "formatter.date.srcformat"),
+							
+					fieldData = new Date($.jgrid.parseDate.call(this, srcformat, options.item[options.cmName])),
+					searchValue = $.jgrid.parseDate.call(this, newformat, options.searchValue);
+					
+					let fd = new Date(fieldData.valueOf() - fieldData.getTimezoneOffset() * 60000);
+					return fd.getFullYear() !== searchValue.getFullYear() ||
+							fd.getMonth() !== searchValue.getMonth() ||
+							fd.getDate() !== searchValue.getDate();
+				}
+			},
+			dlt: {
+				operand: "<",
+				text: "Less (Date&Time)",
+				filter: function (options) {
+				
+					var p = this.p, 
+					iCol = p.iColByName[options.cmName], 
+					cm = p.colModel[iCol],
+					
+					newformat = cm.formatoptions != null && cm.formatoptions.newformat ?
+								cm.formatoptions.newformat :
+								$(this).jqGrid("getGridRes", "formatter.date.newformat"),
+								
+					srcformat = cm.formatoptions != null && cm.formatoptions.srcformat ?
+								cm.formatoptions.srcformat :
+								$(this).jqGrid("getGridRes", "formatter.date.srcformat"),
+								
+					searchValue = $.jgrid.parseDate.call(this, newformat, options.searchValue),					
+					fieldData = new Date($.jgrid.parseDate.call(this, srcformat, options.item[options.cmName]));
+						
+					let fd = new Date(fieldData.valueOf() - fieldData.getTimezoneOffset() * 60000);					
+					return fd.getTime() < searchValue.getTime();
+				}
+			},
+			dge: {
+				operand: ">=",
+				text: "Greater-Than or Equal (Date&Time)",
+				filter: function (options) {	
+				
+					var p = this.p, 
+					iCol = p.iColByName[options.cmName], 
+					cm = p.colModel[iCol],
+					
+					newformat = cm.formatoptions != null && cm.formatoptions.newformat ?
+								cm.formatoptions.newformat :
+								$(this).jqGrid("getGridRes", "formatter.date.newformat"),
+								
+					srcformat = cm.formatoptions != null && cm.formatoptions.srcformat ?
+								cm.formatoptions.srcformat :
+								$(this).jqGrid("getGridRes", "formatter.date.srcformat"),
+								
+					searchValue = $.jgrid.parseDate.call(this, newformat, options.searchValue),					
+					fieldData = new Date($.jgrid.parseDate.call(this, srcformat, options.item[options.cmName]));
+						
+					let fd = new Date(fieldData.valueOf() - fieldData.getTimezoneOffset() * 60000);					
+					return fd.getTime() >= searchValue.getTime();
+				}
+			}
+		}
+	})			
+	.jqGrid('navGrid', '#domainsPager', 
+	{
+		addtext: "Add",
+		edittext: "Edit",
+		deltext: "Delete",
+		searchtext: "Search",
+		refresh: true,
+		refreshtext: "Reload",
+		//view: true,
+		//viewtext: "View",	
+		//searchOperators: true,
+		multipleSearch: true,
+		iconsOverText: true,
+		beforeRefresh: function() {
+		
+			$('#domainsGrid').setGridParam({
+				reloadGridOptions: { fromServer: true }
+			})
+			.trigger('reloadGrid')			
+			.setGridParam({
+				reloadGridOptions: { fromServer: false }
+			});
+		}
+	},			
+	//-------------- PUT / Edit
+	{
+		mtype: "PUT",
+		editCaption: "Edit Domain",
+		closeAfterEdit: true,
+		reloadAfterSubmit: false, // обновление		
+		//recreateForm: true,
+		/*
+		serializeEditData: function (postdata) {
+		
+			//alert(JSON.stringify(postdata));		
+			//var rowdata = jQuery('#tags').getRowData(postdata.id);
+			// append postdata with any information 
+			return { id: postdata.id, url: postdata.url, type: postdata.type };
+		},
+		*/		
+		onclickSubmit: function (params, postdata) {		
+			
+			//alert(JSON.stringify(params));
+			//alert(JSON.stringify(postdata));
+			//var domainsGrid = $("#domainsGrid");
+			//var rowId = domainsGrid.jqGrid('getGridParam','selrow');
+			//var rowData = domainsGrid.jqGrid('getRowData', rowId);					
+			//alert(JSON.stringify(rowData));
+			
+			params.url = "/api/domains";		
+			return postdata;
+		},				
+		afterSubmit: function(data, postdata, oper) {
+		
+			//alert(JSON.stringify(data));		
+			//$("#domainsGrid").jqGrid("setGridParam", {datatype: 'json'});
+			//$("#domainsGrid").trigger('reloadGrid');				
+		
+			var response = data.responseJSON;					
+			if (response.hasOwnProperty("error")) {
+				if (response.error.length) {
+					return [false, response.error ];
+				}
+			}
+			
+			return [true, "", postdata.id];
+		},
+		errorTextFormat: function (data) {
+			return 'Error: ' + data.responseText
+		}
+	},			
+	//-------------- POST / Add			
+	{
+		mtype: "POST", 
+		addCaption: "Add Domain",		
+		closeAfterAdd: true, 
+		reloadAfterSubmit: false,
+		//reloadAfterSubmit: true,		
+		//recreateForm: true,				
+		/*addtext: "Add", 
+		closeOnEscape: true, 
+		savekey: [true, 13], 
+		errorTextFormat: commonError, 
+		bottominfo: "Fields marked with (*) are required", 
+		width: "500", 
+		top: "60", 
+		left: "5", 
+		right: "5",*/
+		onclickSubmit: function (params, postdata) {
+		
+			params.url = "/api/domains";			
+			return postdata;
+		},
+		afterSubmit: function(data, postdata, oper) {
+		
+			//$("#domainsGrid").jqGrid("setGridParam", {datatype: 'json'});
+			//$("#domainsGrid").trigger('reloadGrid');	
+
+			var response = data.responseJSON;					
+			if (response.hasOwnProperty("error")) {
+				if (response.error.length) {
+					return [false, response.error ];
+				}
+			}
+		
+			postdata.last_visited = response.last_visited;
+			
+			return [true, "", response.id];
+		},
+		afterComplete : function (response, postdata, formid) {
+			/*
+			$("#domainsGrid").setGridParam({
+				reloadGridOptions: { fromServer: true }
+			})
+			.trigger("reloadGrid")			
+			.setGridParam({
+				reloadGridOptions: { fromServer: false }
+			});			
+			*/
+		},
+		errorTextFormat: function (data) {
+			return 'Error: ' + data.responseText
+		}
+	},			
+	//-------------- DELETE			
+	{
+		mtype: "DELETE", 
+		deleteCaption: "Delete Domain",
+		closeAfterEdit: true, //<- !!!
+		reloadAfterSubmit: true,		
+		//recreateForm: true,					
+		/*
+		deletetext: "Delete Post", 
+		closeOnEscape: true, 
+		savekey: [true, 13], 
+		errorTextFormat: commonError, 
+		bottominfo: "Fields marked with (*) are required", 
+		width: "500", 
+		top: "60", 
+		left: "5", 
+		right: "5",*/				
+		onclickSubmit: function (params, postdata) {
+			params.url = "/api/domains/" + postdata.id;;				
+			return postdata;
+		},
+		afterSubmit : function( data, postdata, oper) {
+			
+			//$("#domainsGrid").jqGrid("setGridParam", {datatype: 'json'});
+			//$("#domainsGrid").trigger('reloadGrid');
+			
+			/*
+			var response = data.responseJSON;					
+			if (response.hasOwnProperty("error")) {
+				if (response.error.length) {
+					return [false, response.error ];
+				}
+			}
+			*/		
+
+			$("#pagesPostsGrid").jqGrid('GridUnload');
+			createPagePostGrid("/api/pagesposts");
+			
+			return [true, "", postdata.id];
+		},
+		errorTextFormat: function (data) {
+			return 'Error: ' + data.responseText
+		}
+	})
+	.jqGrid("filterToolbar", {	
+		//searchOperators: false,
+		//autosearch: true,
+		//searchOnEnter: false,
+		//defaultSearch: 'cn'
+	})		
+	.jqGrid("gridResize");
+	
+	
+	//------------------------------------- Pages / Posts
+	
+	createPagePostGrid("/api/pagesposts");	
+	//setGridUrl();
+
+	function createPagePostGrid(url) {		
+		
+		$("#pagesPostsGrid").jqGrid({
+		
+			url: url,
+			datatype: "json",//jsonstring			
+			loadonce: true,
+			//navOptions: { reloadGridOptions: { fromServer: true } },
+			//reloadGridOptions: { fromServer: true },			
+			//onSelectRow: reload,
+			//sortname: "last_visited",
+			//sortorder: "desc",				
+			width: 1145,
+			height: 220,
+			//autoResizing: { compact: false },
+			viewrecords: true,
+			rowList: [5, 10, 20, 50, 100, "1000000:All"],
+			rowNum: 10,
+			//inlineEditing: { keys: true },
+			pager: '#pagesPostsPager',
+			cmTemplate: { editable: true, autoResizable: true },
+			iconSet: "fontAwesome",
+			//postData: { keyword: function () { return $("#myForm").serialize(); } },
+			caption: "Pages/Posts Editor",			
+			colNames: [ /*"",*/ "ID", "URL", "", "Category", "Type", "Status", "Last Visited", "Notes" ],				
+			colModel: [
+				//{ name: "act", template: "actions" },
+				{ name: "id", hidden: true},
+				{ name: "url", width: 450, sortable: true },				
+				{ 
+					name: "open", 
+					editable: false, 
+					search: false,
+					width: 40,
+					formatter: function (cellvalue, options, rowObject) {
+					
+						return `<button onclick="(() => {
+							
+							window.open('${rowObject.url}', '_blank');
+							
+							fetch('/api/pagesposts/lastvisited', { 
+								method: 'PUT',
+								headers: { 'Content-Type': 'application/x-www-form-urlencoded' },							
+								body: 'id=${rowObject.id}' 
+							})
+							.then((response) => {
+								return response.json()
+							})
+							.then((responseJson) => {							
+								$('#pagesPostsGrid').jqGrid('setCell', ${options.rowId}, 'last_visited', responseJson.time);
+							})    
+							.catch((error) => {
+								alert(error);
+							});
+						})();" class="btn btn-default btn-xs">Visit</button>`;
+					}
+				},				
+				{ name: "category", width: 120, sortable: true },
+				{ name: "type", width: 120, sortable: true, editoptions: { defaultValue: domainType } },
+				{ name: "status", width: 120, sortable: true },
+				{ 
+					name: "last_visited", 
+					width: 145,
+					editable: false,
+					//sortable: true,	
+					sorttype: 'date',
+					formatter:'date',
+					formatoptions: { 
+						//userLocalTime : true,	
+						srcformat: "ISO8601Long", 
+						newformat: "M/d/Y, g:i A"
+					},					
+					searchoptions: { 
+						//sopt: ["deq", "dne", "lt", "le", "gt", "ge"], 
+						sopt: ["deq", "dne", "dlt",  "dge"],
+						dataInit: function (elem, options) {
+							var self = this;
+							$(elem).datepicker({
+								//dateFormat: "dd-M-yy",
+								autoSize: true,
+								changeYear: true,
+								changeMonth: true,
+								showButtonPanel: true,
+								showWeek: true,
+								onSelect: function () {
+									if (options.mode === "filter") {
+										setTimeout(function () {
+											self.triggerToolbar();
+										}, 0);
+									} else {
+										// to refresh the filter
+										$(elem).trigger("change");
+									}
+								}
+							});
+						}
+					}
+				},				
+				{ name: "notes", edittype: 'textarea', width: 150, sortable: true }
+			],			
+			customSortOperations: {
+				deq: {
+					operand: "==",
+					text: "Equal (Date only)",
+					filter: function (options) {
+					
+						var p = this.p, 
+						iCol = p.iColByName[options.cmName], 
+						cm = p.colModel[iCol],
+						
+						newformat = cm.formatoptions != null && cm.formatoptions.newformat ?
+									cm.formatoptions.newformat :
+									$(this).jqGrid("getGridRes", "formatter.date.newformat"),
+									
+						srcformat = cm.formatoptions != null && cm.formatoptions.srcformat ?
+									cm.formatoptions.srcformat :
+									$(this).jqGrid("getGridRes", "formatter.date.srcformat"),
+									
+						searchValue = $.jgrid.parseDate.call(this, newformat, options.searchValue),					
+						fieldData = new Date($.jgrid.parseDate.call(this, srcformat, options.item[options.cmName]));
+							
+						let fd = new Date(fieldData.valueOf() - fieldData.getTimezoneOffset() * 60000);					
+						return fd.getFullYear() === searchValue.getFullYear() &&
+								fd.getMonth() === searchValue.getMonth() &&
+								fd.getDate() === searchValue.getDate();
+					}
+				},
+				dne: {
+					operand: "!=",
+					text: "Not equal (Date only)",
+					filter: function (options) {
+					
+						var p = this.p, 
+						iCol = p.iColByName[options.cmName], 
+						cm = p.colModel[iCol],
+						
+						newformat = cm.formatoptions != null && cm.formatoptions.newformat ?
+								cm.formatoptions.newformat :
+								$(this).jqGrid("getGridRes", "formatter.date.newformat"),
+								
+						srcformat = cm.formatoptions != null && cm.formatoptions.srcformat ?
+								cm.formatoptions.srcformat :
+								$(this).jqGrid("getGridRes", "formatter.date.srcformat"),
+								
+						fieldData = new Date($.jgrid.parseDate.call(this, srcformat, options.item[options.cmName])),
+						searchValue = $.jgrid.parseDate.call(this, newformat, options.searchValue);
+						
+						let fd = new Date(fieldData.valueOf() - fieldData.getTimezoneOffset() * 60000);
+						return fd.getFullYear() !== searchValue.getFullYear() ||
+							fd.getMonth() !== searchValue.getMonth() ||
+							fd.getDate() !== searchValue.getDate();
+					}
+				},
+				dlt: {
+					operand: "<",
+					text: "Less (Date&Time)",
+					filter: function (options) {
+					
+						var p = this.p, 
+						iCol = p.iColByName[options.cmName], 
+						cm = p.colModel[iCol],
+						
+						newformat = cm.formatoptions != null && cm.formatoptions.newformat ?
+									cm.formatoptions.newformat :
+									$(this).jqGrid("getGridRes", "formatter.date.newformat"),
+									
+						srcformat = cm.formatoptions != null && cm.formatoptions.srcformat ?
+									cm.formatoptions.srcformat :
+									$(this).jqGrid("getGridRes", "formatter.date.srcformat"),
+									
+						searchValue = $.jgrid.parseDate.call(this, newformat, options.searchValue),					
+						fieldData = new Date($.jgrid.parseDate.call(this, srcformat, options.item[options.cmName]));
+							
+						let fd = new Date(fieldData.valueOf() - fieldData.getTimezoneOffset() * 60000);					
+						return fd.getTime() < searchValue.getTime();
+					}
+				},
+				dge: {
+					operand: ">=",
+					text: "Greater-Than or Equal (Date&Time)",
+					filter: function (options) {	
+					
+						var p = this.p, 
+						iCol = p.iColByName[options.cmName], 
+						cm = p.colModel[iCol],
+						
+						newformat = cm.formatoptions != null && cm.formatoptions.newformat ?
+									cm.formatoptions.newformat :
+									$(this).jqGrid("getGridRes", "formatter.date.newformat"),
+									
+						srcformat = cm.formatoptions != null && cm.formatoptions.srcformat ?
+									cm.formatoptions.srcformat :
+									$(this).jqGrid("getGridRes", "formatter.date.srcformat"),
+									
+						searchValue = $.jgrid.parseDate.call(this, newformat, options.searchValue),					
+						fieldData = new Date($.jgrid.parseDate.call(this, srcformat, options.item[options.cmName]));
+							
+						let fd = new Date(fieldData.valueOf() - fieldData.getTimezoneOffset() * 60000);					
+						return fd.getTime() >= searchValue.getTime();
+					}
+				}
+			}
+		})			
+		.jqGrid('navGrid', '#pagesPostsPager', 
+		{		
+			addtext: "Add",
+			edittext: "Edit",
+			deltext: "Delete",
+			searchtext: "Search",
+			refresh: true,
+			refreshtext: "Reload",
+			//view: true,
+			//viewtext: "View",	
+			//searchOperators: true,
+			multipleSearch: true,
+			iconsOverText: true,
+			beforeRefresh: function() {
+			
+				$('#pagesPostsGrid').setGridParam({
+					reloadGridOptions: { fromServer: true }
+				})
+				.trigger('reloadGrid')			
+				.setGridParam({
+					reloadGridOptions: { fromServer: false }
+				});
+			}
+		},			
+		//-------------- PUT / Edit
+		{
+			mtype: "PUT",
+			editCaption: "Edit Page/Post",
+			closeAfterEdit: true,
+			reloadAfterSubmit: false, // обновление				
+			//recreateForm: true,
+			/*
+			serializeEditData: function (postdata) {
+			
+				//alert(JSON.stringify(postdata));
+			
+				//var rowdata = jQuery('#tags').getRowData(postdata.id);
+				// append postdata with any information 
+				return { id: postdata.id, url: postdata.url, type: postdata.type };
+			},
+			*/
+			onclickSubmit: function (params, postdata) {
+				
+				//alert(JSON.stringify(params));
+				//alert(JSON.stringify(postdata));				
+				//var domainsGrid = $("#domainsGrid");
+				//var rowId = domainsGrid.jqGrid('getGridParam','selrow');
+				//var rowData = domainsGrid.jqGrid('getRowData', rowId);					
+				//alert(JSON.stringify(rowData));
+			
+				params.url = "/api/pagesposts";				
+				return postdata;
+			},
+			afterSubmit: function(data, postdata, oper) {
+			
+				//alert(JSON.stringify(data));				
+				//$("#pagesPostsGrid").jqGrid("setGridParam", {datatype: 'json'});
+				//$("#pagesPostsGrid").trigger('reloadGrid');
+			
+				var response = data.responseJSON;					
+				if (response.hasOwnProperty("error")) {
+					if (response.error.length) {
+						return [false, response.error ];
+					}
+				}
+				
+				return [true, "", postdata.id];
+			},
+			errorTextFormat: function (data) {
+				return 'Error: ' + data.responseText
+			}
+		},			
+		//-------------- POST / Add			
+		{
+			mtype: "POST", 
+			addCaption: "Add Page/Post",		
+			closeAfterAdd: true, 
+			reloadAfterSubmit: false,
+			//reloadAfterSubmit: true,
+			//recreateForm: true,
+			/*addtext: "Add", 
+			closeOnEscape: true, 
+			savekey: [true, 13], 
+			errorTextFormat: commonError, 
+			bottominfo: "Fields marked with (*) are required", 
+			width: "500", 
+			top: "60", 
+			left: "5", 
+			right: "5",*/
+			onclickSubmit: function (params, postdata) {
+			
+				params.url = "/api/pagesposts";				
+				postdata.domain_id = domainId;				
+				return postdata;
+			},
+			afterSubmit: function(data, postdata, oper) {
+			
+				//$("#pagesPostsGrid").jqGrid("setGridParam", {datatype: 'json'});
+				//$("#pagesPostsGrid").trigger('reloadGrid');	
+
+				var response = data.responseJSON;					
+				if (response.hasOwnProperty("error")) {
+					if (response.error.length) {
+						return [false, response.error ];
+					}
+				}				
+				
+				postdata.last_visited = response.last_visited;
+				
+				return [true, "", response.id];
+			},
+			afterComplete : function (response, postdata, formid) {
+				/*				
+				$("#pagesPostsGrid").setGridParam({
+					reloadGridOptions: { fromServer: true }
+				})
+				.trigger("reloadGrid")			
+				.setGridParam({
+					reloadGridOptions: { fromServer: false }
+				});				
+				*/
+			},
+			errorTextFormat: function (data) {
+				return 'Error: ' + data.responseText
+			}
+		},			
+		//-------------- DELETE			
+		{
+			mtype: "DELETE", 
+			deleteCaption: "Delete Page/Post",
+			closeAfterEdit: true, //<- !!!
+			reloadAfterSubmit: true,
+			//recreateForm: true,
+			/*
+			deletetext: "Delete Post", 
+			closeOnEscape: true, 
+			savekey: [true, 13], 
+			errorTextFormat: commonError, 
+			bottominfo: "Fields marked with (*) are required", 
+			width: "500", 
+			top: "60", 
+			left: "5", 
+			right: "5",*/				
+			onclickSubmit: function (params, postdata) {
+			
+				params.url = "/api/pagesposts/" + postdata.id;;				
+				return postdata;
+			},
+			afterSubmit : function( data, postdata, oper) {
+				
+				//$("#pagesPostsGrid").jqGrid("setGridParam", {datatype: 'json'});
+				//$("#pagesPostsGrid").trigger('reloadGrid');
+				
+				/*
+				var response = data.responseJSON;					
+				if (response.hasOwnProperty("error")) {
+					if (response.error.length) {
+						return [false, response.error ];
+					}
+				}
+				*/
+				
+				return [true, "", postdata.id];
+			},
+			errorTextFormat: function (data) {
+				return 'Error: ' + data.responseText
+			}
+		})
+		.jqGrid("filterToolbar", {
+		
+			//searchOperators: false,
+			//autosearch: true,
+			//searchOnEnter: false,
+			//defaultSearch: 'cn'
+		})		
+		.jqGrid("gridResize");
+		
+		$('#pagesPostsGrid').navButtonAdd('#pagesPostsPager', {
+		
+			//https://www.w3schools.com/icons/fontawesome5_icons_computers.asp
+			buttonicon: "ui-pg-button-icon-over-text fa fa-lg fa-fw fa-download",
+			title: "All Pages/Posts",
+			caption: "Load All",
+			position: "last",
+			onClickButton: getAllPagesPosts
+		});
+	}
+	
+	
+	function reload(rowid, status, e) { 
+
+		var rowData = domainsGrid.getRowData(rowid);
+		domainId = rowData['id'];	
+		domainType = rowData["type"];
+		
+		/*
+		$("#pagesPostsGrid").setGridParam({
+			//datatype: "json",
+			url: "/api/pagesposts?domainId=" + domainId,
+			//postData: { msgIds: msgIds },
+			loadonce: false
+		})
+		.trigger("reloadGrid");	
+		*/
+		
+		$("#pagesPostsGrid").jqGrid('GridUnload');
+		//$("#domainsGrid").jqGrid('GridDestroy');
+		createPagePostGrid("/api/pagesposts?domainId=" + domainId);	
+		//setGridUrl();			
+	}
+	
+	
+	function getAllPagesPosts() {
+		
+		$("#domainsGrid").jqGrid("resetSelection");
+		$("#pagesPostsGrid").jqGrid('GridUnload');
+		createPagePostGrid("/api/pagesposts/all");
+	}	
+	
+	
+	function setGridUrl() {	
+
+		$("#domainsGrid").jqGrid('setGridParam', {
+			url: "/api/domains?id=" + "111"//, page: 222
+		})
+		.trigger("reloadGrid");
+	}
+	
+	
+	function onClickSubmit(params, postdata) {
+	
+		params.url = "/api/domains";			
+		return postdata;
+	}
+	
+	
+	function errorTextFormat(data) {
+		return 'Error: ' + data.responseText
+	}
+	
+});
+
+//]]>
+</script>	
+</body>
+</html>
