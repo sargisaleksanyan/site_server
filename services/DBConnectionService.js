@@ -11,6 +11,7 @@ const con = mysql.createConnection({
 	database: "sites_visit"
 });
 */
+console.log(db);
 const con = mysql.createConnection(
 	db
 );
